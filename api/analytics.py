@@ -29,40 +29,43 @@ class MetricsRequest(BaseModel):
 
 @app.post("/analytics")
 async def get_latency_metrics(payload: MetricsRequest):
-    try:
-        print("Incoming payload:", payload.dict())
+    results = {}
 
-        results = {}
+    for region in payload.regions:
+        region_data = [entry for entry in data if entry.get("region") == region]
 
-        for region in payload.regions:
-            region_data = [entry for entry in data if entry.get("region") == region]
-
-            if not region_data:
-                results[region] = {
-                    "avg_latency": None,
-                    "p95_latency": None,
-                    "avg_uptime": None,
-                    "breaches": None
-                }
-                continue
-
-            latencies = [entry.get("latency_ms") for entry in region_data if "latency_ms" in entry]
-            latencies = [l for l in latencies if l is not None]
-
-            uptimes = [entry.get("uptime", 1.0) for entry in region_data]
-
-            breaches = sum(1 for l in latencies if l > payload.threshold_ms)
-
+        if not region_data:
             results[region] = {
-                "avg_latency": round(np.mean(latencies), 2) if latencies else None,
-                "p95_latency": round(np.percentile(latencies, 95), 2) if latencies else None,
-                "avg_uptime": round(np.mean(uptimes)*100, 3) if uptimes else None,
-                "breaches": breaches
+                "avg_latency": None,
+                "p95_latency": None,
+                "avg_uptime": None,
+                "breaches": None,
             }
+            continue
 
-        # ✅ Wrap in "regions" for grader compatibility
-        return {"regions": results}
+        # Latencies
+        latencies = [
+            entry.get("latency_ms")
+            for entry in region_data
+            if entry.get("latency_ms") is not None
+        ]
 
-    except Exception as e:
-        print("ERROR:", e)
-        return {"error": str(e)}
+        # ✅ Use uptime_pct (already percentages, e.g. 97.264)
+        uptimes = [
+            entry.get("uptime_pct")
+            for entry in region_data
+            if entry.get("uptime_pct") is not None
+        ]
+
+        # Breaches
+        breaches = sum(1 for l in latencies if l > payload.threshold_ms)
+
+        # Metrics
+        results[region] = {
+            "avg_latency": round(np.mean(latencies), 2) if latencies else None,
+            "p95_latency": round(np.percentile(latencies, 95), 2) if latencies else None,
+            "avg_uptime": round(np.mean(uptimes), 3) if uptimes else None,
+            "breaches": breaches,
+        }
+
+    return {"regions": results}
