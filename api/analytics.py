@@ -56,7 +56,7 @@ async def get_latency_metrics(payload: MetricsRequest):
             results[region] = {
                 "avg_latency": round(np.mean(latencies), 2) if latencies else None,
                 "p95_latency": round(np.percentile(latencies, 95), 2) if latencies else None,
-                "avg_uptime": round(np.mean(uptimes), 4) if uptimes else None,
+                "avg_uptime": round(np.mean(uptimes)*100, 3) if uptimes else None,
                 "breaches": breaches
             }
 
